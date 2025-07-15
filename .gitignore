@@ -1,0 +1,11 @@
+*.props
+*.nuget.g.targets
+*.dll
+*.pdb
+*.exe
+*.cache
+*.user
+*.suo
+*.userosscache
+*.sln.ide
+*.sln.docstates 
