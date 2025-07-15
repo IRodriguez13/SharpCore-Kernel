@@ -9,3 +9,8 @@
 *.userosscache
 *.sln.ide
 *.sln.docstates 
+*/bin
+*/obj
+*/.vs
+*/.vscode
+*/.idea
