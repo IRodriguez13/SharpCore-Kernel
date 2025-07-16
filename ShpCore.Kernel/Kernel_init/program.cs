@@ -18,7 +18,9 @@ public class Program
         var protocol = start_arguments[1];
         var adapter = start_arguments[2];
 
-        SharpCoreKernel.Run(payloadPath, protocol, adapter);
+        SharpCoreKernel Boot_kernel = new SharpCoreKernel();
+        
+        Boot_kernel.Run(payloadPath, protocol, adapter);
     }
 
 }

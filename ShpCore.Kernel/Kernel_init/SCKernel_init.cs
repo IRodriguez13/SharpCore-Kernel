@@ -1,5 +1,6 @@
 using ShpCore.Logging;
 using SharpCore.Abstractions;
+using ShpCore.Launcher.Core.Factory;
 
 namespace SharpCore.Kernel.Init;
 
