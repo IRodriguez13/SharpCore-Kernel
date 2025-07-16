@@ -1,42 +1,49 @@
-using ShpCore.Launcher.Core.Factory;
 using ShpCore.Logging;
+using SharpCore.Abstractions;
 
 namespace SharpCore.Kernel.Init;
 
-public static class SharpCoreKernel
+public class SharpCoreKernel : IKernelEntryPoint
 {
-    public static void Run(string payloadPath, string protocol, string adapter)
+    public void Run(string payloadPath, string protocol, string adapter, bool devMode = false)
     {
-        if (!File.Exists(payloadPath))
-        {
-            KernelLog.Panic($"[Runner] El payload no existe en la ruta: {payloadPath}");
-            return;
-        }
 
-        if (!Directory.Exists(adapter))
+        if (devMode)
         {
-            KernelLog.Panic($"[Runner] La ruta del adaptador no existe: {adapter}");
-            return;
-        }
+        
+            KernelLog.Debug("[CLI MODE] Modo de desarrollo activado. init con Kernel referenciado localmente.");
 
-        try
-        {
-            var protocolInstance = ProtocolFactory.Get(protocol);
-            var bridge = protocolInstance.CreateBridge(adapter);
-            bridge.Start();
+            if (!File.Exists(payloadPath))
+            {
+                KernelLog.Panic($"[Kernel Loader] El payload no existe en la ruta: {payloadPath}");
+                return;
+            }
 
-            var json = File.ReadAllText(payloadPath);
-            bridge.Send(json);
+            if (!Directory.Exists(adapter))
+            {
+                KernelLog.Panic($"[Kernel Loader] La ruta del adaptador no existe: {adapter}");
+                return;
+            }
 
-            KernelLog.Info("[Runner] Payload enviado exitosamente.");
-        }
-        catch (Exception ex)
-        {
-            KernelLog.Panic("[Runner] Fallo al ejecutar el núcleo.", ex);
-        }
-        finally
-        {
-            KernelLog.Debug("[Runner] Proceso de ejecución del núcleo finalizado.");
-        }
+            try
+            {
+                var protocolInstance = ProtocolFactory.Get(protocol);
+                var bridge = protocolInstance.CreateBridge(adapter);
+                bridge.Start();
+
+                var json = File.ReadAllText(payloadPath);
+                bridge.Send(json);
+
+                KernelLog.Info("[Kernel Loader] Payload enviado exitosamente.");
+            }
+            catch (Exception ex)
+            {
+                KernelLog.Panic("[Kernel Loader] Fallo al ejecutar el kernel.", ex);
+            }
+
+        }    
+
+        KernelLog.Info("[Kernel Loader] Ejecución del kernel finalizada.");
+
     }
 }
