@@ -19,7 +19,7 @@ namespace MSharp.Launcher.Core.Bridge
         private readonly FinishAdapterLayer _adapter; // Adapter para procesar instrucciones
         private readonly StagingManager<MSharpInstruction> _stageManager; // Manejador de staging para aplicar y revertir instrucciones
 
-        public event Action<string>? OnMessage; // [unused] Esto queda por compatibilidad, pero  no es el punto de entrada principal
+        // public event Action<string>? OnMessage; // [unused] Esto queda por compatibilidad, pero  no es el punto de entrada principal
 
         public NamedPipeBridgeConnection( FinishAdapterLayer adapter, string pipeName = "namedpipe")
         {

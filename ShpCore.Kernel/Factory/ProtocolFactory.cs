@@ -9,6 +9,7 @@ public static class ProtocolFactory
         return protocol.ToLowerInvariant() switch
         {
             "namedpipe" => new NamedPipeProtocol(),
+            "remotelinux" => new RemoteLinuxProtocol(),
             // "grpc" => new GrpcProtocol(),
             // "unix" => new FileProtocol(),
             _ => throw new ArgumentException($"Unknown protocol: {protocol}")

@@ -4,5 +4,5 @@ public interface IBridgeConnection // Contrato para la definición de conexiones
 {
     void Start();
     void Send(string message);
-    event Action<string> OnMessage;
+    // event Action<string> OnMessage;
 }
