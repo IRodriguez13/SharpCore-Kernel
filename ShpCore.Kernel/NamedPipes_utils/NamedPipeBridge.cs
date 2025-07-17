@@ -21,7 +21,7 @@ namespace MSharp.Launcher.Core.Bridge
 
         // public event Action<string>? OnMessage; // [unused] Esto queda por compatibilidad, pero  no es el punto de entrada principal
 
-        public NamedPipeBridgeConnection( FinishAdapterLayer adapter, string pipeName = "namedpipe")
+        public NamedPipeBridgeConnection(FinishAdapterLayer adapter, string pipeName = "namedpipe")
         {
             this.pipeName = pipeName;
             this._adapter = adapter;
@@ -39,8 +39,8 @@ namespace MSharp.Launcher.Core.Bridge
         {
             listenThread = new Thread(() =>
             {
-                KernelLog.Debug("[Bridge] Iniciando escucha de Named Pipe..."); 
-                for (;;)
+                KernelLog.Debug("[Bridge] Iniciando escucha de Named Pipe...");
+                for (; ; )
                 {
                     try
                     {
@@ -48,18 +48,18 @@ namespace MSharp.Launcher.Core.Bridge
                             pipeName,
                             PipeDirection.InOut,
                             1,
-                    #if WINDOWS
+#if WINDOWS
                             PipeTransmissionMode.Message,
-                    #else
+#else
                             PipeTransmissionMode.Byte,
-                    #endif
+#endif
                             PipeOptions.Asynchronous
                         );
 
                         KernelLog.Debug("[Bridge] Pipe levantado. Esperando conexión Java...");
 
                         server.WaitForConnection();
-                        
+
                         KernelLog.Debug("[Bridge] ¡Conexión Java ↔ C# establecida!");
 
                         byte[] buffer = new byte[2048];
@@ -98,7 +98,6 @@ namespace MSharp.Launcher.Core.Bridge
             listenThread.Start();
         }
 
-        // No me intersa manejar los mensajes del lado del cliente.
         public void Send(string message)
         {
             try
@@ -116,9 +115,37 @@ namespace MSharp.Launcher.Core.Bridge
                     KernelLog.Panic("[Bridge] El servidor de pipe no está inicializado.");
                     return;
                 }
+
                 server.Write(buffer, 0, buffer.Length);
                 server.Flush();
+            }
+            catch (Exception ex)
+            {
+                KernelLog.Panic($"[Bridge] Error al enviar por pipe: {ex.Message}");
+            }
+        }
 
+        // No me intersa manejar los mensajes del lado del cliente.
+        public async Task SendAsync(string message)
+        {
+            try
+            {
+                if (server is { IsConnected: false })
+                {
+                    KernelLog.Panic("[Bridge] No se puede enviar mensaje. No hay conexión.");
+                    return;
+                }
+
+                byte[] buffer = Encoding.UTF8.GetBytes(message);
+
+                if (server is null)
+                {
+                    KernelLog.Panic("[Bridge] El servidor de pipe no está inicializado.");
+                    return;
+                }
+
+                await server.WriteAsync(buffer, 0, buffer.Length);
+                await server.FlushAsync();
             }
             catch (Exception ex)
             {
@@ -165,7 +192,7 @@ namespace MSharp.Launcher.Core.Bridge
             if (_adapter == null)
             {
                 KernelLog.Panic("[adapter] No hay adapter configurado.");
-               
+
                 return false;
             }
 
