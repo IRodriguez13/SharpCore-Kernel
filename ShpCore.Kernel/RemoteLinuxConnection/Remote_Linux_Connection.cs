@@ -14,7 +14,11 @@ public class RemoteLinuxBridgeConnection : IBridgeConnection
     {
         set
         {
-            if(value.Length < 0) throw new ArgumentException("Debe haber al menos una URL para la conexión remota.");
+            if(value.Length < 0)
+            {
+                KernelLog.Panic("[RemoteLinuxBridgeConnection] Dev, No se proporcionaron URLs para la conexión remota.");
+                throw new ArgumentException();
+            }
         }
     }
 
