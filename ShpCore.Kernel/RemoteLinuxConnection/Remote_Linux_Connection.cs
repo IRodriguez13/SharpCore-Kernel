@@ -5,6 +5,7 @@ using System.Text.Json;
 using MSharp.Launcher.Core.Bridge;
 using System.Text.Json.Serialization;
 using System.Net.Http.Json;
+using ShpCore.Kernel.RemoteHelper;
 
 namespace ShpCore.Kernel.RemoteLinuxConnection;
 
@@ -28,30 +29,31 @@ public class RemoteLinuxBridgeConnection : IBridgeConnection
         try
         {
 
-            var content = new StringContent(command, Encoding.UTF8, "application/json");
+            var content = BridgeSerializationHelper.ToJsonContent(new { cmd = command });
 
-            // 2. Enviar la solicitud (versión síncrona)
             var response = _client.PostAsync($"{_serviceUrl}", content).GetAwaiter().GetResult();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorText = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                KernelLog.Panic($"[RemoteBridge] Error remoto: {response.StatusCode} - {errorText}");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"[Remote Kernel Linux]: Error remoto: {errorText}");
+                Console.ResetColor();
+                return;
+            }
 
             // 3. Leer la respuesta (versión síncrona)
             var result = response.Content.ReadFromJsonAsync<RemoteLinuxResult>().GetAwaiter().GetResult();
 
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"\n[Kernel Linux]: {result?.Stdout?.Trim()}\n[Kernel Linux] Exit Code: {result?.Exit_code}\n");
+            Console.WriteLine($"\n[Remote Kernel Linux]: {result?.Stdout?.Trim()}\n");
+            Console.WriteLine($"[Remote Kernel Linux]: Exit Code: {result?.Exit_code}\n");
             Console.ResetColor();
-        }
-        catch (HttpRequestException httpEx)
-        {
-            KernelLog.Panic($"Fallo HTTP: {httpEx.Message}");
         }
         catch (Exception ex)
         {
-            var errorContent = _client.GetStringAsync(_serviceUrl).Result;
-            KernelLog.Panic($"[RemoteBridge] Error ejecutando comando: {ex.Message}\nContenido del error: {errorContent}");
-        }
-        finally
-        {
-            _client.Dispose();
+            KernelLog.Panic($"[RemoteBridge] Error ejecutando comando: {ex.Message}\n stacktrace: {ex.StackTrace}");
         }
     }
 
@@ -59,28 +61,33 @@ public class RemoteLinuxBridgeConnection : IBridgeConnection
     {
         try
         {
-            // 1. Construir el payload EXACTAMENTE como en curl
-            var payload = new { command };
-            var json = JsonSerializer.Serialize(payload);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = new StringContent(command ,Encoding.UTF8, "application/json");
 
-            // 2. Enviar a la URL exacta (sin agregar /exec)
             var response = await _client.PostAsync(_serviceUrl, content);
 
-            // 3. Leer y mostrar la respuesta directa (sin decoración)
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorText = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                KernelLog.Panic($"[RemoteBridge] Error remoto: {response.StatusCode} - {errorText}");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"[Remote Kernel Linux]: Error remoto: {errorText}");
+                Console.ResetColor();
+                return;
+            }
+
             var result = await response.Content.ReadFromJsonAsync<RemoteLinuxResult>();
             Console.WriteLine(result?.Stdout?.Trim()); // Salida directa y limpia
         }
         catch (Exception ex)
         {
-            KernelLog.Panic($"Error ejecutando comando: {ex.Message}");
+            KernelLog.Panic($"[RemoteBridge] Error ejecutando comando: {ex.Message}");
         }
     }
 
     public void Dispose() => _client.Dispose();
 }
 
-// Modelo exacto para la respuesta
+// Modelo exacto para la respuesta del linux remoto
 public class RemoteLinuxResult
 {
     [JsonPropertyName("stdout")]
@@ -91,4 +98,7 @@ public class RemoteLinuxResult
 
     [JsonPropertyName("exit_code")]
     public int Exit_code { get; set; }
+
+    [JsonPropertyName("error")]
+    public string? Error { get; set; } = string.Empty;
 }
