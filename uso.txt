@@ -1,1 +1,16 @@
+-- para enviar mensajes a linux lan
+
  dotnet run --project ./ShpCore.CLI.csproj -- run --cmd "neofetch" --protocol remote-linux --adapter "http://localhost:5000/exec" --payload dummy.json --dev
+
+
+qemu-system-x86_64 \
+  -hda ~/sharpcore/images/alpine-sharpcore.qcow2 \
+  -m 2048 \
+  -netdev user,id=net0,hostfwd=tcp::5000-:5000 \
+  -device e1000,netdev=net0
+
+
+-- con este comando levanto desde sharpcore el linux virtualizado
+
+dotnet run --project ./ShpCore.CLI.csproj vm vm-start  --image /home/ivanr013/Escritorio/dev/SharpCore.UbuntuEnv.Builder/Output/alpine-
+sharpcore.qcow2 

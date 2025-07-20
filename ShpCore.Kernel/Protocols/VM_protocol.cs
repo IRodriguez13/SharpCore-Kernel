@@ -13,7 +13,6 @@ public class SharpCoreVmProtocol : IProtocol
     public IBridgeConnection CreateBridge(string adapterPath)
     {
         var options = JsonSerializer.Deserialize<QemuOptions>(adapterPath);
-        return new QemuBridgeConnection(options!);
-        
+        return new QemuBridgeConnection(options!);   
     }
 }
