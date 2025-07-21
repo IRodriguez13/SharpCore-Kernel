@@ -4,6 +4,7 @@ using ShpCore.Kernel.RemoteLinuxConnection;
 using ShpCore.Logging;
 using System.Net.Sockets;
 using System.Net;
+using System.Runtime.InteropServices;
 
 
 namespace ShpCore.Kernel.VirtualMachineSubsystem;
@@ -35,7 +36,7 @@ public class QemuBridgeConnection : IBridgeConnection
         );
     }
 
-    private void PreflightCheck() // Realiza chequeos previos antes de iniciar la VM
+    private void PreflightCheck()
     {
         KernelLog.Warn("[Preflight] Iniciando healthcheck previos para QEMU");
 
@@ -45,15 +46,41 @@ public class QemuBridgeConnection : IBridgeConnection
             throw new ArgumentNullException(nameof(_options));
         }
 
-        // 1. Validación de imagen
-        if (!File.Exists(_options.ImagePath) || _options.ImagePath.Length == 0)
+        // 1. Validar imagen
+        if (string.IsNullOrWhiteSpace(_options.ImagePath) || !File.Exists(_options.ImagePath))
         {
             KernelLog.Panic($"[Preflight] Imagen no encontrada: {_options.ImagePath}");
             throw new FileNotFoundException("La imagen de disco no existe.", _options.ImagePath);
         }
 
-        // 2. Validación y creación del folder compartido
-        if (!string.IsNullOrEmpty(_options.SharedFolder))
+        // 2. Validar SharedFolder o asignar por defecto según OS
+        if (string.IsNullOrWhiteSpace(_options.SharedFolder))
+        {
+            var userDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                _options.SharedFolder = Path.Combine(userDir, "SharpCoreShare");
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                _options.SharedFolder = Path.Combine(userDir, "sharpcore-share-mac");
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                _options.SharedFolder = Path.Combine(userDir, "sharpcore-share");
+            }
+
+            KernelLog.Warn($"[Preflight] Carpeta compartida no definida. Usando fallback: {_options.SharedFolder}");
+        }
+
+        // 3. Sanitizar path para Windows
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            _options.SharedFolder = _options.SharedFolder.Replace("\\", "/");
+        }
+
+        // 4. Crear carpeta si no existe
+        try
         {
             if (!Directory.Exists(_options.SharedFolder))
             {
@@ -61,43 +88,47 @@ public class QemuBridgeConnection : IBridgeConnection
                 KernelLog.Info($"[Preflight] Carpeta compartida creada: {_options.SharedFolder}");
             }
         }
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        catch (Exception ex)
         {
-            opts.SharedFolder = "C:\\Users\\Public\\SharpCoreShare";
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            opts.SharedFolder = "/home/tuusuario/sharpcore-share";
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            opts.SharedFolder = "/Users/tuusuario/sharpcore-share";
+            KernelLog.Panic($"[Preflight] Error al crear carpeta compartida: {ex.Message}");
+            throw;
         }
 
+        // (sigue con validación de puerto, procesos zombie, etc.)
 
-        // 3. Validación de puerto libre
+
+
+        //  Asignación dinámica de puerto si es necesario
         if (_options.Port == 0)
         {
             _options.Port = FindFreePort();
             KernelLog.Info($"[Preflight] Puerto libre asignado dinámicamente: {_options.Port}");
         }
+        else
+        {
+            KernelLog.Info($"[Preflight] Usando puerto especificado: {_options.Port}");
+        }
 
-        // 4. Limpieza de procesos zombie de QEMU
+        // Limpieza de QEMU si está usando la imagen específica
         var qemuProcs = Process.GetProcessesByName("qemu-system-x86_64");
         foreach (var proc in qemuProcs)
         {
             try
             {
-                proc.Kill(true);
-                proc.WaitForExit(1500); // Espera hasta 1.5 segundos para que el proceso termine
-                KernelLog.Info($"[Preflight] Proceso QEMU colgado eliminado: PID {proc.Id}");
+                if (proc.StartInfo.Arguments.Contains(_options.ImagePath))
+                {
+                    proc.Kill(true);
+                    proc.WaitForExit(1500);
+                    KernelLog.Info($"[Preflight] Proceso QEMU colgado eliminado: PID {proc.Id}");
+                }
             }
             catch
             {
-                KernelLog.Info($"[Preflight] No hay procesos QEMU en paralelo, Preflight OK.");
+                KernelLog.Warn($"[Preflight] No se pudo eliminar el proceso QEMU con PID {proc.Id}. Puede que ya haya finalizado.");
             }
         }
+
+        KernelLog.Info("[Preflight] Todos los chequeos pasaron correctamente. Ready to boot");
     }
 
 
@@ -232,6 +263,29 @@ public class QemuBridgeConnection : IBridgeConnection
         KernelLog.Panic("[QEMU] No se pudo encontrar un puerto libre para la VM");
         return -1;
     }
+
+    public bool IsHostshareMounted()
+    {
+        if (_options == null)
+        {
+            KernelLog.Panic("[MountCheck] Opciones de QEMU no definidas.");
+            throw new ArgumentNullException(nameof(_options));
+        }
+        
+        var remote = new RemoteLinuxBridgeConnection($"http://127.0.0.1:{_options.Port}/exec");
+        var result = remote.SendAndReceive("mount | grep /mnt/hostshare");
+
+        if (!string.IsNullOrWhiteSpace(result) && result.Contains("9p"))
+        {
+            KernelLog.Info("[MountCheck] Montaje de carpeta hostshare OK.");
+            return true;
+        }
+        else
+        {
+            KernelLog.Warn("[MountCheck] Montaje no detectado en /mnt/hostshare.");
+            return false;
+        }
+    }
 }
 
 
@@ -246,3 +300,5 @@ public class QemuOptions
     public int StartPort { get; set; } = 5000;
     public string SharedFolder { get; set; } = "/path/to/share"; // ¡Personalizable!
 }
+
+

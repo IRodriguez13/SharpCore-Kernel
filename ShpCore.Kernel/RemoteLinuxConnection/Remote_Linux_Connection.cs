@@ -14,10 +14,10 @@ public class RemoteLinuxBridgeConnection : IBridgeConnection
     private readonly HttpClient _client = new HttpClient();
     private readonly string _serviceUrl;
 
-    public RemoteLinuxBridgeConnection(string url) => _serviceUrl = url ?? throw new ArgumentException("URL no puede ser nula");
-    
+    public RemoteLinuxBridgeConnection(string url) => _serviceUrl = url;
+
     public void Start() => KernelLog.Info($"[RemoteBridge] Conectado a {_serviceUrl}");
-    
+
     public void Send(string command)
     {
         try
@@ -50,11 +50,39 @@ public class RemoteLinuxBridgeConnection : IBridgeConnection
         }
     }
 
+    public string SendAndReceive(string command)
+    {
+        try
+        {
+            var body = new { cmd = command };
+            var json = JsonSerializer.Serialize(body);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = _client.PostAsync(_serviceUrl, content).GetAwaiter().GetResult();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorText = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                KernelLog.Panic($"[RemoteBridge] Error remoto: {response.StatusCode} - {errorText}");
+                return string.Empty;
+            }
+
+            var result = response.Content.ReadFromJsonAsync<RemoteLinuxResult>().GetAwaiter().GetResult();
+            return result?.Stdout?.Trim() ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            KernelLog.Panic($"[RemoteBridge] Excepción ejecutando comando: {ex.Message}");
+            return string.Empty;
+        }
+    }
+
+
     public async Task SendAsync(string command)
     {
         try
         {
-            var content = new StringContent(command ,Encoding.UTF8, "application/json");
+            var content = new StringContent(command, Encoding.UTF8, "application/json");
 
             var response = await _client.PostAsync(_serviceUrl, content);
 
