@@ -14,3 +14,14 @@ qemu-system-x86_64 \
 
 dotnet run --project ./ShpCore.CLI.csproj vm vm-start  --image /home/ivanr013/Escritorio/dev/SharpCore.UbuntuEnv.Builder/Output/alpine-
 sharpcore.qcow2 
+
+
+ -- para debug --
+ 
+ qemu-system-x86_64 \
+  -hda /home/ivanr013/Escritorio/dev/SSL-Environment/Output/alpine-sharpcore.qcow2 \
+  -m 2048 \
+  -net nic \
+  -net user,hostfwd=tcp::5000-:5000 \
+  -virtfs local,path=/home/ivanr013/sharpcore-share,mount_tag=hostshare,security_model=passthrough,id=hostshare \
+  -nographic

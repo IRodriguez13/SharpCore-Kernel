@@ -14,16 +14,10 @@ public class RemoteLinuxBridgeConnection : IBridgeConnection
     private readonly HttpClient _client = new HttpClient();
     private readonly string _serviceUrl;
 
-    public RemoteLinuxBridgeConnection(string url)
-    {
-        _serviceUrl = url ?? throw new ArgumentException("URL no puede ser nula");
-    }
-
-    public void Start()
-    {
-        KernelLog.Info($"[RemoteBridge] Conectado a {_serviceUrl}");
-    }
-
+    public RemoteLinuxBridgeConnection(string url) => _serviceUrl = url ?? throw new ArgumentException("URL no puede ser nula");
+    
+    public void Start() => KernelLog.Info($"[RemoteBridge] Conectado a {_serviceUrl}");
+    
     public void Send(string command)
     {
         try
@@ -43,7 +37,6 @@ public class RemoteLinuxBridgeConnection : IBridgeConnection
                 return;
             }
 
-            // 3. Leer la respuesta (versión síncrona)
             var result = response.Content.ReadFromJsonAsync<RemoteLinuxResult>().GetAwaiter().GetResult();
 
             Console.ForegroundColor = ConsoleColor.Green;
@@ -102,3 +95,5 @@ public class RemoteLinuxResult
     [JsonPropertyName("error")]
     public string? Error { get; set; } = string.Empty;
 }
+
+
