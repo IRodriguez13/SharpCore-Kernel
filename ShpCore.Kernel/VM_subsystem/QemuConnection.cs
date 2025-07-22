@@ -94,9 +94,6 @@ public class QemuBridgeConnection : IBridgeConnection
             throw;
         }
 
-        // (sigue con validación de puerto, procesos zombie, etc.)
-
-
 
         //  Asignación dinámica de puerto si es necesario
         if (_options.Port == 0)
@@ -298,7 +295,7 @@ public class QemuOptions
     public string ExtraArgs { get; set; } = string.Empty;
     public int Port { get; set; } = 0; // 0 = buscar uno libre
     public int StartPort { get; set; } = 5000;
-    public string SharedFolder { get; set; } = "/path/to/share"; // ¡Personalizable!
+    public string SharedFolder { get; set; } = string.Empty; // ¡Personalizable!
 }
 
 
