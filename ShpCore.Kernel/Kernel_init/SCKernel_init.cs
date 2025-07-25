@@ -16,13 +16,13 @@ public class SharpCoreKernel : IKernelEntryPoint
 
             if (!File.Exists(payloadPath))
             {
-                KernelLog.Panic($"[Kernel Loader] El payload no existe en la ruta: {payloadPath}");
+                KernelLog.Panic($"[Kernel Loader SckernelInit line:19] El payload no existe en la ruta: {payloadPath}");
                 return;
             }
 
             if (!Directory.Exists(adapter))
             {
-                KernelLog.Panic($"[Kernel Loader] La ruta del adaptador no existe: {adapter}");
+                KernelLog.Panic($"[Kernel Loader SckernelInit line:25] La ruta del adaptador no existe: {adapter}");
                 return;
             }
 
@@ -39,7 +39,7 @@ public class SharpCoreKernel : IKernelEntryPoint
             }
             catch (Exception ex)
             {
-                KernelLog.Panic("[Kernel Loader] Fallo al ejecutar el kernel.", ex);
+                KernelLog.Panic("[Kernel Loader SckernelInit line:42] Fallo al ejecutar el kernel.", ex);
             }
 
         }    

@@ -1,4 +1,4 @@
-name: Build & Test SharpCore
+name: Build & Test SharpCore microkernel
 
 on:
   push:

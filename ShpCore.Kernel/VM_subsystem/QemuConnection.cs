@@ -32,8 +32,7 @@ public class QemuBridgeConnection : IBridgeConnection
         return Task.Run(() =>
         {
             var remote = new RemoteLinuxBridgeConnection($"http://");
-        }
-        );
+        });
     }
 
     private void PreflightCheck()
@@ -59,6 +58,7 @@ public class QemuBridgeConnection : IBridgeConnection
             var userDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
+                _options.SharedFolder = _options.SharedFolder.Replace("\\", "/");
                 _options.SharedFolder = Path.Combine(userDir, "SharpCoreShare");
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -71,12 +71,6 @@ public class QemuBridgeConnection : IBridgeConnection
             }
 
             KernelLog.Warn($"[Preflight] Carpeta compartida no definida. Usando fallback: {_options.SharedFolder}");
-        }
-
-        // 3. Sanitizar path para Windows
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            _options.SharedFolder = _options.SharedFolder.Replace("\\", "/");
         }
 
         // 4. Crear carpeta si no existe
@@ -113,11 +107,11 @@ public class QemuBridgeConnection : IBridgeConnection
             try
             {
                 if (proc.StartInfo.Arguments.Contains(_options.ImagePath))
-                {
+                
                     proc.Kill(true);
                     proc.WaitForExit(1500);
                     KernelLog.Info($"[Preflight] Proceso QEMU colgado eliminado: PID {proc.Id}");
-                }
+                
             }
             catch
             {
@@ -133,11 +127,15 @@ public class QemuBridgeConnection : IBridgeConnection
     {
         if (_options == null) throw new ArgumentNullException(nameof(_options));
 
+
         if (_options.Port == 0)
-        {
+        
             _options.Port = FindFreePort();
             KernelLog.Info($"[QEMU] Puerto libre asignado dinámicamente: {_options.Port}");
-        }
+        
+
+
+        KernelLog.Info($"[QEMU] Puerto libre asignado dinámicamente: {_options.Port}");
 
         PreflightCheck();
 
@@ -150,47 +148,62 @@ public class QemuBridgeConnection : IBridgeConnection
             virtfsArg = $"-virtfs local,path={_options.SharedFolder},mount_tag=hostshare,security_model=passthrough,id=hostshare ";
         }
 
-        string args =
-            $"-hda {_options.ImagePath} -m {_options.MemoryMb} " +
-            $"-net nic -net user,hostfwd=tcp::{_options.Port}-:{_options.Port} " +
-            virtfsArg +
-            $"{(_options.UseSnapshot ? "-snapshot " : "")}" +
-            $"{(_options.UseNographic ? "-nographic " : "")}" +
-            $"{_options.ExtraArgs}";
+        string args = string.Join(" ",
+       $"-hda {_options.ImagePath}",
+       $"-m {_options.MemoryMb}",
+       "-net nic",
+       $"-net user,hostfwd=tcp::{_options.Port}-:{_options.Port}",
+       virtfsArg,
+       _options.UseSnapshot ? "-snapshot" : "",
+       _options.UseNographic ? "-nographic" : "",
+       _options.ExtraArgs
+   );
 
+
+        bool redirectOutput = !_options.UseNographic;
 
         var startInfo = new ProcessStartInfo
         {
             FileName = "qemu-system-x86_64",
             Arguments = args,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = false // true si querés ocultar ventana, false para debug
+            RedirectStandardOutput = redirectOutput,
+            RedirectStandardError = redirectOutput,
+            UseShellExecute = !redirectOutput,
+            CreateNoWindow = redirectOutput
         };
 
         _vmProcess = new Process { StartInfo = startInfo };
 
-        _vmProcess.OutputDataReceived += (sender, e) =>
+        if (redirectOutput)
         {
-            if (!string.IsNullOrEmpty(e.Data))
-                KernelLog.Info($"[QEMU stdout] {e.Data}");
-        };
-        _vmProcess.ErrorDataReceived += (sender, e) =>
-        {
-            if (!string.IsNullOrEmpty(e.Data))
-                KernelLog.Panic($"[QEMU stderr] {e.Data}");
-        };
+            _vmProcess.OutputDataReceived += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                    KernelLog.Info($"[QEMU stdout] {e.Data}");
+            };
+            _vmProcess.ErrorDataReceived += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                    KernelLog.Panic($"[QEMU stderr] {e.Data}");
+            };
+        }
 
-        _vmProcess.Start();
-        _vmProcess.BeginOutputReadLine();
-        _vmProcess.BeginErrorReadLine();
+        bool process = _vmProcess.Start();
+
+        if (redirectOutput)
+        {
+            _vmProcess.BeginOutputReadLine();
+            _vmProcess.BeginErrorReadLine();
+        }
 
         KernelLog.Info($"[QEMU] Esperando a que el puerto {_options.Port} esté disponible...");
         WaitForPort("127.0.0.1", _options.Port);
-        _vmProcess.WaitForExit();
-        KernelLog.Info("[QEMU] VM finalizó correctamente.");
 
+        if (_options.UseSnapshot)
+        {
+            _vmProcess.WaitForExit();
+            KernelLog.Info("[QEMU] VM finalizó correctamente.");
+        }
     }
 
     public void Send(string command)
@@ -208,10 +221,10 @@ public class QemuBridgeConnection : IBridgeConnection
     public void Dispose()
     {
         if (_vmProcess != null && !_vmProcess.HasExited)
-        {
+        
             KernelLog.Info("[QEMU] Apagando la VM");
             _vmProcess.Kill(true);
-        }
+        
     }
 
     private void WaitForPort(string host, int port, int timeoutSeconds = 15)
@@ -245,20 +258,18 @@ public class QemuBridgeConnection : IBridgeConnection
 
     private int FindFreePort(int startPort = 5000) // Busca un puerto libre a partir del puerto especificado
     {
-        for (int port = 0; port < startPort + 100; port++)
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+
+        if (port == 0)
         {
-            try
-            {
-                var listener = new TcpListener(IPAddress.Loopback, port);
-                listener.Start();
-                listener.Stop();
-                return port;
-            }
-            catch { }
+            KernelLog.Panic("[QEMU] No se pudo encontrar un puerto libre.");
+            throw new Exception("No free port found for QEMU.");
         }
 
-        KernelLog.Panic("[QEMU] No se pudo encontrar un puerto libre para la VM");
-        return -1;
+        return port;
     }
 
     public bool IsHostshareMounted()
@@ -268,7 +279,7 @@ public class QemuBridgeConnection : IBridgeConnection
             KernelLog.Panic("[MountCheck] Opciones de QEMU no definidas.");
             throw new ArgumentNullException(nameof(_options));
         }
-        
+
         var remote = new RemoteLinuxBridgeConnection($"http://127.0.0.1:{_options.Port}/exec");
         var result = remote.SendAndReceive("mount | grep /mnt/hostshare");
 
@@ -288,14 +299,14 @@ public class QemuBridgeConnection : IBridgeConnection
 
 public class QemuOptions
 {
-    public string ImagePath { get; set; } = string.Empty;
-    public int MemoryMb { get; set; } = 1024;
-    public bool UseSnapshot { get; set; } = false;
-    public bool UseNographic { get; set; } = true;
-    public string ExtraArgs { get; set; } = string.Empty;
-    public int Port { get; set; } = 0; // 0 = buscar uno libre
-    public int StartPort { get; set; } = 5000;
-    public string SharedFolder { get; set; } = string.Empty; // ¡Personalizable!
+    public string? ImagePath { get; set; }
+    public int MemoryMb { get; set; }
+    public bool UseSnapshot { get; set; }
+    public bool UseNographic { get; set; }
+    public string? ExtraArgs { get; set; }
+    public int Port { get; set; }
+    public int StartPort { get; set; }
+    public string? SharedFolder { get; set; }
 }
 
 
