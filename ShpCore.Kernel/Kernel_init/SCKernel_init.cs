@@ -12,17 +12,17 @@ public class SharpCoreKernel : IKernelEntryPoint
         if (devMode)
         {
         
-            KernelLog.Debug("[CLI MODE] Modo de desarrollo activado. init con Kernel referenciado localmente.");
+            KernelLog.Debug("[CLI MODE] DevMode on. init with your own microkernel.");
 
             if (!File.Exists(payloadPath))
             {
-                KernelLog.Panic($"[Kernel Loader SckernelInit line:19] El payload no existe en la ruta: {payloadPath}");
+                KernelLog.Panic($"[Kernel Loader SckernelInit line:19] Payload does not exists on: {payloadPath}");
                 return;
             }
 
             if (!Directory.Exists(adapter))
             {
-                KernelLog.Panic($"[Kernel Loader SckernelInit line:25] La ruta del adaptador no existe: {adapter}");
+                KernelLog.Panic($"[Kernel Loader SckernelInit line:25] Adapter path does not exists: {adapter}");
                 return;
             }
 
@@ -35,16 +35,16 @@ public class SharpCoreKernel : IKernelEntryPoint
                 var json = File.ReadAllText(payloadPath);
                 bridge.Send(json);
 
-                KernelLog.Info("[Kernel Loader] Payload enviado exitosamente.");
+                KernelLog.Info("[Kernel Loader] Payload send succesfully.");
             }
             catch (Exception ex)
             {
-                KernelLog.Panic("[Kernel Loader SckernelInit line:42] Fallo al ejecutar el kernel.", ex);
+                KernelLog.Panic("[Kernel Loader SckernelInit line:42] Kernel Execution failure.", ex);
             }
 
         }    
 
-        KernelLog.Info("[Kernel Loader] Ejecución del kernel finalizada.");
+        KernelLog.Info("[Kernel Loader] Kernel exec terminated.");
 
     }
 }

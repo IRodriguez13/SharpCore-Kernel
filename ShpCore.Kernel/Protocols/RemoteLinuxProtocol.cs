@@ -15,14 +15,14 @@ public class RemoteLinuxProtocol : IProtocol
 
         if (urls.Length == 0)
         {
-            KernelLog.Panic("[RemoteLinuxProtocol] Adapterpath vacío.");
+            KernelLog.Panic("[RemoteLinuxProtocol] Adapterpath is empty.");
             throw new ArgumentException(nameof(adapterPath));
         }
 
         if (urls.Length == 0)
         {
-            KernelLog.Panic("[RemoteLinuxProtocol] Dev, No se proporcionaron URLs para la conexión remota.");
-            throw new ArgumentException();;
+            KernelLog.Panic("[RemoteLinuxProtocol] Dev, you didnt wrote any URL.");
+            throw new ArgumentException();
         }
 
 
