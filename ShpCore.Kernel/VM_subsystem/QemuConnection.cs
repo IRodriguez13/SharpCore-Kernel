@@ -27,7 +27,7 @@ public class QemuBridgeConnection : IBridgeConnection
 
     }
 
-    public Task SendAsync(string path) // No lo voy a usar por ahora.
+    public Task SendAsync(string path) // I wont use it for now. Just for the interface errs
     {
         return Task.Run(() =>
         {
@@ -35,21 +35,21 @@ public class QemuBridgeConnection : IBridgeConnection
         });
     }
 
-    private void PreflightCheck()
+    private void PreflightCheck() // Checkeo previo a la ejecución de la VM
     {
-        KernelLog.Warn("[Preflight] Iniciando healthcheck previos para QEMU");
+        KernelLog.Warn("[Preflight] Running QEMU preflight Healthcheck...");
 
         if (_options == null)
         {
-            KernelLog.Panic("[Preflight] Opciones de QEMU no definidas.");
+            KernelLog.Panic("[Preflight QemuConnection.cs line:44] QEMU options undefined .");
             throw new ArgumentNullException(nameof(_options));
         }
 
         // 1. Validar imagen
         if (string.IsNullOrWhiteSpace(_options.ImagePath) || !File.Exists(_options.ImagePath))
         {
-            KernelLog.Panic($"[Preflight] Imagen no encontrada: {_options.ImagePath}");
-            throw new FileNotFoundException("La imagen de disco no existe.", _options.ImagePath);
+            KernelLog.Panic($"[Preflight] Linux Image not found: {_options.ImagePath}");
+            throw new FileNotFoundException("La imagen no existe.", _options.ImagePath);
         }
 
         // 2. Validar SharedFolder o asignar por defecto según OS
@@ -70,21 +70,21 @@ public class QemuBridgeConnection : IBridgeConnection
                 _options.SharedFolder = Path.Combine(userDir, "sharpcore-share");
             }
 
-            KernelLog.Warn($"[Preflight] Carpeta compartida no definida. Usando fallback: {_options.SharedFolder}");
+            KernelLog.Warn($"[Preflight for Mounting System] Shared folder not found. Using fallback: {_options.SharedFolder}");
         }
 
-        // 4. Crear carpeta si no existe
+        // 4 - Create folder if not exists
         try
         {
             if (!Directory.Exists(_options.SharedFolder))
             {
                 Directory.CreateDirectory(_options.SharedFolder);
-                KernelLog.Info($"[Preflight] Carpeta compartida creada: {_options.SharedFolder}");
+                KernelLog.Info($"[Preflight] Shared Folder created : {_options.SharedFolder}");
             }
         }
         catch (Exception ex)
         {
-            KernelLog.Panic($"[Preflight] Error al crear carpeta compartida: {ex.Message}");
+            KernelLog.Panic($"[Preflight QemuConnection line:87] Failure creating the Shared folder for Mount: {ex.Message}");
             throw;
         }
 
@@ -93,11 +93,11 @@ public class QemuBridgeConnection : IBridgeConnection
         if (_options.Port == 0)
         {
             _options.Port = FindFreePort();
-            KernelLog.Info($"[Preflight] Puerto libre asignado dinámicamente: {_options.Port}");
+            KernelLog.Info($"[Preflight] Free port dynamically assigned: {_options.Port}");
         }
         else
         {
-            KernelLog.Info($"[Preflight] Usando puerto especificado: {_options.Port}");
+            KernelLog.Info($"[Preflight] Using port: {_options.Port}");
         }
 
         // Limpieza de QEMU si está usando la imagen específica
@@ -110,16 +110,16 @@ public class QemuBridgeConnection : IBridgeConnection
                 
                     proc.Kill(true);
                     proc.WaitForExit(1500);
-                    KernelLog.Info($"[Preflight] Proceso QEMU colgado eliminado: PID {proc.Id}");
+                    KernelLog.Info($"[Preflight] Zombie QEMU process killed: PID {proc.Id}");
                 
             }
             catch
             {
-                KernelLog.Warn($"[Preflight] No se pudo eliminar el proceso QEMU con PID {proc.Id}. Puede que ya haya finalizado.");
+                KernelLog.Warn($"[Preflight] Couldnt kill QEMU process with id: {proc.Id}. Maybe it already finished.");
             }
         }
 
-        KernelLog.Info("[Preflight] Todos los chequeos pasaron correctamente. Ready to boot");
+        KernelLog.Info("[Preflight] All checks passed. Ready to boot");
     }
 
 
@@ -131,15 +131,11 @@ public class QemuBridgeConnection : IBridgeConnection
         if (_options.Port == 0)
         
             _options.Port = FindFreePort();
-            KernelLog.Info($"[QEMU] Puerto libre asignado dinámicamente: {_options.Port}");
-        
-
-
-        KernelLog.Info($"[QEMU] Puerto libre asignado dinámicamente: {_options.Port}");
+            KernelLog.Info($"[QEMU] Free port dynamically assigned: {_options.Port}");
 
         PreflightCheck();
 
-        KernelLog.Info($"[QEMU] Iniciando VM desde {_options.ImagePath}");
+        KernelLog.Info($"[QEMU] Starting VM from: {_options.ImagePath}");
 
 
         string virtfsArg = string.Empty;
@@ -196,13 +192,13 @@ public class QemuBridgeConnection : IBridgeConnection
             _vmProcess.BeginErrorReadLine();
         }
 
-        KernelLog.Info($"[QEMU] Esperando a que el puerto {_options.Port} esté disponible...");
+        KernelLog.Info($"[QEMU] Waiting for port: {_options.Port}");
         WaitForPort("127.0.0.1", _options.Port);
 
         if (_options.UseSnapshot)
         {
             _vmProcess.WaitForExit();
-            KernelLog.Info("[QEMU] VM finalizó correctamente.");
+            KernelLog.Info("[QEMU] VM finished succesfully.");
         }
     }
 
@@ -210,7 +206,7 @@ public class QemuBridgeConnection : IBridgeConnection
     {
         if (_options == null)
         {
-            KernelLog.Panic("[Preflight] Opciones de QEMU no definidas.");
+            KernelLog.Panic("[Preflight] QEMU options undefined.");
             throw new ArgumentNullException(nameof(_options));
         }
 
@@ -222,7 +218,7 @@ public class QemuBridgeConnection : IBridgeConnection
     {
         if (_vmProcess != null && !_vmProcess.HasExited)
         
-            KernelLog.Info("[QEMU] Apagando la VM");
+            KernelLog.Info("[QEMU] Shooting off VM");
             _vmProcess.Kill(true);
         
     }
@@ -239,11 +235,11 @@ public class QemuBridgeConnection : IBridgeConnection
 
                 if (_options == null)
                 {
-                    KernelLog.Panic("[Preflight] Opciones de QEMU no definidas.");
+                    KernelLog.Panic("[Preflight] QEMU otions undefined.");
                     throw new ArgumentNullException(nameof(_options));
                 }
 
-                KernelLog.Info($"[QEMU] VM escuchando en http://127.0.0.1:{_options.Port}");
+                KernelLog.Info($"[QEMU] VM listening on: http://127.0.0.1:{_options.Port}");
                 return;
             }
             catch
@@ -252,7 +248,7 @@ public class QemuBridgeConnection : IBridgeConnection
             }
         }
 
-        KernelLog.Panic("[QEMU] Timeout esperando a que la VM esté online");
+        KernelLog.Panic("[QEMU] Timeout reached. VM didnt start on time");
         throw new Exception("QEMU VM did not start in time.");
     }
 
@@ -265,7 +261,7 @@ public class QemuBridgeConnection : IBridgeConnection
 
         if (port == 0)
         {
-            KernelLog.Panic("[QEMU] No se pudo encontrar un puerto libre.");
+            KernelLog.Panic("[QEMU] Couldnt find free port.");
             throw new Exception("No free port found for QEMU.");
         }
 
@@ -285,11 +281,17 @@ public class QemuBridgeConnection : IBridgeConnection
 
         if (!string.IsNullOrWhiteSpace(result) && result.Contains("9p"))
         {
-            KernelLog.Info("[MountCheck] Montaje de carpeta hostshare OK.");
+        		Console.ForegroundColor = ConsoleColor.Green;
+        		Console.WriteLine("OK");
+        		Console.ResetColor();
+            KernelLog.Info("[MountCheck]  Shared folder succesfully mounted.");
             return true;
         }
         else
         {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("FAIL");
+            Console.ResetColor(); 
             KernelLog.Warn("[MountCheck] Montaje no detectado en /mnt/hostshare.");
             return false;
         }
