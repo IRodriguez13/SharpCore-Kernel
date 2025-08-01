@@ -25,3 +25,19 @@ sharpcore.qcow2
   -net user,hostfwd=tcp::5000-:5000 \
   -virtfs local,path=/home/ivanr013/sharpcore-share,mount_tag=hostshare,security_model=passthrough,id=hostshare \
   -nographic
+
+
+
+-- para testear el servidor intra kernel -- 
+sharpcore-linux:~# source venv/bin/activate
+((venv) ) sharpcore-linux:~# 
+((venv) ) sharpcore-linux:~# python3 micro.py
+
+ * Serving Flask app 'micro'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.0.2.15:5000
+Press CTRL+C to quit
+
