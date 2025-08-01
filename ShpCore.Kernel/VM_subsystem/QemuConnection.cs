@@ -19,6 +19,7 @@ public class QemuBridgeConnection : IBridgeConnection
     {
         _options = options;
         _imagePath = options.ImagePath ?? throw new ArgumentNullException(nameof(options.ImagePath));
+
         if (_options.Port == 0)
         {
             _options.Port = FindFreePort(_options.StartPort);
@@ -107,11 +108,11 @@ public class QemuBridgeConnection : IBridgeConnection
             try
             {
                 if (proc.StartInfo.Arguments.Contains(_options.ImagePath))
-                
+
                     proc.Kill(true);
-                    proc.WaitForExit(1500);
-                    KernelLog.Info($"[Preflight] Zombie QEMU process killed: PID {proc.Id}");
-                
+                proc.WaitForExit(1500);
+                KernelLog.Info($"[Preflight] Proceso QEMU colgado eliminado: PID {proc.Id}");
+
             }
             catch
             {
@@ -129,9 +130,13 @@ public class QemuBridgeConnection : IBridgeConnection
 
 
         if (_options.Port == 0)
-        
+
             _options.Port = FindFreePort();
-            KernelLog.Info($"[QEMU] Free port dynamically assigned: {_options.Port}");
+        KernelLog.Info($"[QEMU] Puerto libre asignado dinámicamente: {_options.Port}");
+
+
+
+        KernelLog.Info($"[QEMU] Puerto libre asignado dinámicamente: {_options.Port}");
 
         PreflightCheck();
 
@@ -216,11 +221,16 @@ public class QemuBridgeConnection : IBridgeConnection
 
     public void Dispose()
     {
-        if (_vmProcess != null && !_vmProcess.HasExited)
-        
-            KernelLog.Info("[QEMU] Shooting off VM");
+        if (_vmProcess is null)
+        {
+            KernelLog.Panic("[QEMU QemuConnection line:226] The process is null");
+        }
+        if (!_vmProcess.HasExited)
+        {
+            KernelLog.Info("[QEMU] Apagando la VM");
+
             _vmProcess.Kill(true);
-        
+        }
     }
 
     private void WaitForPort(string host, int port, int timeoutSeconds = 15)
